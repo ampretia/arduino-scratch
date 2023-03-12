@@ -5,7 +5,10 @@ const ArgumentType = require('../../extension-support/argument-type');
 class Scratch3YourExtension {
 
     constructor (runtime) {
-        // put any setup for your extension here
+        import('syllable')
+        .then((syllableModule) => {
+          this.syllable = syllableModule.syllable;
+        });
     }
 
     /**
@@ -41,54 +44,67 @@ class Scratch3YourExtension {
                     blockType: BlockType.REPORTER,
 
                     // label to display on the block
-                    text: 'My first block [MY_NUMBER] and [MY_STRING]',
+                    text: 'Title for ISBN book [BOOK_NUMBER]',
 
                     // true if this block should end a stack
                     terminal: false,
 
                     // arguments used in the block
                     arguments: {
-                        MY_NUMBER: {
-                            // default value before the user sets something
-                            defaultValue: 123,
-
-                            // type/shape of the parameter - choose from:
-                            //     ArgumentType.ANGLE - numeric value with an angle picker
-                            //     ArgumentType.BOOLEAN - true/false value
-                            //     ArgumentType.COLOR - numeric value with a colour picker
-                            //     ArgumentType.NUMBER - numeric value
-                            //     ArgumentType.STRING - text value
-                            //     ArgumentType.NOTE - midi music value with a piano picker
-                            type: ArgumentType.NUMBER
-                        },
-                        MY_STRING: {
-                            // default value before the user sets something
-                            defaultValue: 'hello',
-
-                            // type/shape of the parameter - choose from:
-                            //     ArgumentType.ANGLE - numeric value with an angle picker
-                            //     ArgumentType.BOOLEAN - true/false value
-                            //     ArgumentType.COLOR - numeric value with a colour picker
-                            //     ArgumentType.NUMBER - numeric value
-                            //     ArgumentType.STRING - text value
-                            //     ArgumentType.NOTE - midi music value with a piano picker
-                            type: ArgumentType.STRING
+                        BOOK_NUMBER: {
+                        defaultValue: 1718500564,
+            
+                        // type/shape of the parameter
+                        type: ArgumentType.NUMBER
                         }
                     }
+                },
+                {
+                  // function where your code logic lives
+                  opcode: 'mySecondBlock',
+          
+                  // type of block
+                  blockType: BlockType.REPORTER,
+          
+                  // label to display on the block
+                  text: 'Syllables in [MY_TEXT]',
+          
+                  // true if this block should end a stack
+                  terminal: false,
+          
+                  // arguments used in the block
+                  arguments: {
+                    MY_TEXT: {
+                      defaultValue: 'Hello World',
+          
+                      // type/shape of the parameter
+                      type: ArgumentType.STRING
+                    }
+                  }
                 }
             ]
         };
     }
 
 
-    /**
-     * implementation of the block with the opcode that matches this name
-     *  this will be called when the block is used
-     */
-    myFirstBlock ({ MY_NUMBER, MY_STRING }) {
-        // example implementation to return a string
-        return MY_STRING + ' : doubled would be ' + (MY_NUMBER * 2);
-    }
+    myFirstBlock ({ BOOK_NUMBER }) {
+        return fetch('https://openlibrary.org/isbn/' + BOOK_NUMBER + '.json')
+          .then((response) => {
+            if (response.ok) {
+              return response.json();
+            }
+            else {
+              return { title: 'Unknown' };
+            }
+          })
+          .then((bookinfo) => {
+            return bookinfo.title;
+          });
+      }
+
+      mySecondBlock ({ MY_TEXT }) {
+        return this.syllable(MY_TEXT);
+      }
 }
 
 module.exports = Scratch3YourExtension;
