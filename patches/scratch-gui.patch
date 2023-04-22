@@ -6,8 +6,8 @@ index ba18b91..e316f38 100644
  import React from 'react';
  import {FormattedMessage} from 'react-intl';
  
-+import yourExtensionInsetIconURL from './yourextension/your-extension-icon.png';
-+import yourExtensionIconURL from './yourextension/your-extension-background.png';
++import arduinoScratchInsetIconURL from './arduino_scratch/arduino_scratch_icon.png';
++import arduinoScratchIconURL from './arduino_scratch/arduino_scratch_background.png';
 +
  import musicIconURL from './music/music.png';
  import musicInsetIconURL from './music/music-small.svg';
@@ -17,11 +17,11 @@ index ba18b91..e316f38 100644
  
  export default [
 +    {
-+        name: 'Your Extension',
-+        extensionId: 'yourScratchExtension',
-+        iconURL: yourExtensionIconURL,
-+        insetIconURL: yourExtensionInsetIconURL,
-+        description: 'Your custom Scratch extension',
++        name: 'Arduino Scratch',
++        extensionId: 'arduinoScratch',
++        iconURL: arduinoScratchIconURL,
++        insetIconURL: arduinoScratchInsetIconURL,
++        description: 'Connects to Arduino's running Firmata',
 +        featured: true,
 +        disabled: false
 +    },

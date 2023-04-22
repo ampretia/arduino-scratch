@@ -1,3 +1,7 @@
 patched
 scratch-vm
 scratch-gui
+dist
+node_modules
+*.local
+.DS_Store
