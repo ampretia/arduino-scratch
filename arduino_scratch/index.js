@@ -2,13 +2,13 @@ const BlockType = require('../../extension-support/block-type');
 const ArgumentType = require('../../extension-support/argument-type');
 
 const baudRate = 57600; // Default Firmata baudrate
-const reportVersionTimeout = 1000; // Time to wait before requesting version/firmware info
+const reportVersionTimeout = 250; // Time to wait before requesting version/firmware info
 
 const Firmata = require('firmata-web');
 
 
 /**
- * Enum for tilt axis menu options.
+ * Enum for the types of actions per pin
  * @readonly
  * @enum {string}
  */
@@ -19,6 +19,7 @@ const ModeValues = {
     ANALOG: 'analog'
 };
 
+/** Alias names for the Digital Pis */
 const DigitalPinAlias = {
     D2: 'D2',
     D3: 'D3',
@@ -29,6 +30,7 @@ const DigitalPinAlias = {
     D8: 'D8'
 }
 
+/** Alias for the analong pins */
 const AnalogPinAlias = {
     A0: 'A0',
     A1: 'A1',
@@ -36,6 +38,16 @@ const AnalogPinAlias = {
     A3: 'A3'
 };
 
+/** Cnsts for the accelerometer arrayinfo */
+const LR_TILT=1;
+const FB_TILT=0;
+const X_A_AXIS=3;
+const Y_A_AXIS=4;
+const Z_A_AXIS=5;
+
+/** Map the string to the numeric number
+ *  Firmata wants just the number
+ */
 const mapPin = (pin) => {
     return parseInt(pin.slice(1));
 }
@@ -52,8 +64,11 @@ class ArduinoScratch {
 
     }
 
+    /** State */
     portOpen = false;
+    boardReady = false;
 
+    /** Get and open the COM port via webserial */
     _port() {
         console.log("_port: getting port")
         return new Promise((resolve, reject) => {
@@ -64,7 +79,7 @@ class ArduinoScratch {
                 console.log("_port: requesting port from user")
                 navigator.serial.requestPort().then(port => {
                     this.port = port
-                    console.log(this.port.getInfo());
+                    console.log(`_port: ${JSON.stringify(this.port.getInfo())}`);
                     return this.port.open({ baudRate })
                 }).then(() => {
                     this.portOpen = true;
@@ -76,48 +91,64 @@ class ArduinoScratch {
     }
 
     _board() {
+        console.log("_board: getting board instance")
         return new Promise((resolve, reject) => {
 
+            // Callback when the board is read to go
             const boardCallback = () => {
                 console.log("_board: >>>> Ready");
-                console.log(this.board.version)
-                console.log(this.board.pins)
-                console.log(this._getPWMPins());
-                this.ready = true;
+                console.log(`_board: ${JSON.stringify(this.board.version)}`)
+                console.log(`_board: pin array ${JSON.stringify(this.board.pins)}`)
+                console.log(`_board: pwm pings ${JSON.stringify(this._getPWMPins())}`);
+                this.boardReady = true;
                 resolve(this.board);
             }
 
-            if (this.ready) {
+            if (this.boardReady) {
                 console.log("_board: return direct");
                 resolve(this.board);
             } else {
                 if (this.board) {
                     console.log("_board: reseting");
-                    this.ready=false;
+                    this.boardReady=false;
                     this.board.reset();
                     
                 }
                 if (this.port) {
                     console.log("_port: close");
-                    this.portOpen = false;
-                    this.transport.write.close();
-                    this.port.close();
+                    console.log(JSON.stringify(this.port.getInfo()));
+                    if (this.transport){
+                        if (this.transport.reader){
+                            this.transport.reader.releaseLock();
+                        }
+                        if (this.transport.writer){
+                            this.transport.writer.close();
+                            this.transport.writer.releaseLock();
+                        }
+                    }
+                     this.portOpen = false;
+                     this.port.close();
                 }
 
                 console.log("_board: getting port")
                 // get the port
                 this._port().then(port => {
                     // Create transport
+                    console.log(`_board: portOpen? ${this.portOpen}`)
                     this.transport = new Firmata.WebSerialTransport(port);
-                    // Log transport
-                    this.transport.on('write', d => console.log('OUT', d))
-                    this.transport.on('data', d => console.log('IN', d))
+                    
+                    // Log transport - useful for debugging the low level protocol
+                    // this.transport.on('write', d => console.log('OUT', d))
+                    // this.transport.on('data', d => console.log('IN', d))
 
-                    // Crate board
-                    this.ready = false;
-                    this.board = new Firmata.Firmata(transport, {reportVersionTimeout} );
+                    // Create board
+                    this.boardReady = false;
+                    console.log("_board: creating new Firmata instance");
+                    this.board = new Firmata.Firmata(this.transport, {reportVersionTimeout} );
                     this.board.on("ready", boardCallback)
+                    console.log("_board: registered callback")
                 }).catch(e => reject(e))
+
 
             }
         })
@@ -158,8 +189,8 @@ class ArduinoScratch {
             color2: '#46c7be',
 
             // icons to display
-            blockIconURI: '',//'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAkAAAAFCAAAAACyOJm3AAAAFklEQVQYV2P4DwMMEMgAI/+DEUIMBgAEWB7i7uidhAAAAABJRU5ErkJggg==',
-            menuIconURI: '',//'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAkAAAAFCAAAAACyOJm3AAAAFklEQVQYV2P4DwMMEMgAI/+DEUIMBgAEWB7i7uidhAAAAABJRU5ErkJggg==',
+            blockIconURI: '',
+            menuIconURI: '',
 
             // your Scratch blocks
             blocks: [
@@ -233,7 +264,81 @@ class ArduinoScratch {
                         }
                     }
                 },
+                {
+                    // name of the function where your block code lives
+                    opcode: 'getlrtilt',
+                    blockType: BlockType.REPORTER,
 
+                    // label to display on the block
+                    text: 'Gets Left-Right Tilt',
+
+                    // true if this block should end a stack
+                    terminal: false
+
+                },
+                {
+                    // name of the function where your block code lives
+                    opcode: 'getfbtilt',
+                    blockType: BlockType.REPORTER,
+
+                    // label to display on the block
+                    text: 'Gets Front-Back Tilt',
+
+                    // true if this block should end a stack
+                    terminal: false
+
+                },
+                {
+                    // name of the function where your block code lives
+                    opcode: 'getxaxis',
+                    blockType: BlockType.REPORTER,
+
+                    // label to display on the block
+                    text: 'Gets X axis',
+
+                    // true if this block should end a stack
+                    terminal: false,
+
+                },
+                {
+                    // name of the function where your block code lives
+                    opcode: 'getyaxis',
+                    blockType: BlockType.REPORTER,
+
+                    // label to display on the block
+                    text: 'Gets Y axis',
+
+                    // true if this block should end a stack
+                    terminal: false,
+
+                },
+                {
+                    // name of the function where your block code lives
+                    opcode: 'getzaxis',
+                    blockType: BlockType.REPORTER,
+
+                    // label to display on the block
+                    text: 'Gets Z axis',
+
+                    // true if this block should end a stack
+                    terminal: false,
+
+                },
+                {
+                    // name of the function where your block code lives
+                    opcode: 'setaxisdetect',
+                    blockType: BlockType.COMMAND,
+                    text: 'Sets Acceleromter [STATE]',
+                    terminal: false,
+
+                    // arguments used in the block
+                    arguments: {
+                        STATE: {
+                            type: ArgumentType.BOOLEAN,
+                            defaultValue: false
+                        }
+                    }
+                },
                 {
                     // name of the function where your block code lives
                     opcode: 'pulse',
@@ -282,7 +387,24 @@ class ArduinoScratch {
                             defaultValue: ModeValues.OUTPUT
                         }
                     }
-                }
+                },
+                {
+                    opcode: 'setledbarlevel',
+                    blockType: BlockType.COMMAND,
+
+                    // label to display on the block
+                    text: 'Sets LED bar level to [BAR_LEVEL]',
+
+                    // true if this block should end a stack
+                    terminal: false,
+
+                    // arguments used in the block
+                    arguments: {
+                        BAR_LEVEL: {
+                            type: ArgumentType.NUMBER,
+                            defaultValue: 0                            
+                        }                    }
+                },
             ],
             menus: {
                 modeOptions: {
@@ -296,7 +418,8 @@ class ArduinoScratch {
                 digitalPins: {
                     acceptReports: true,
                     items: [DigitalPinAlias.D2, DigitalPinAlias.D3, DigitalPinAlias.D4, DigitalPinAlias.D5, DigitalPinAlias.D6, DigitalPinAlias.D7, DigitalPinAlias.D8]
-                },
+                }
+                ,
                 pwmPins: {
                     acceptReports: true,
                     items: '_getPWMPins'
@@ -377,6 +500,71 @@ class ArduinoScratch {
             })
         })
 
+    }
+
+    setledbarlevel({ BAR_LEVEL}){
+        return this._board().then((board) => {
+            board.glb_setlevel(BAR_LEVEL);
+          
+        })      
+    }
+
+    setaxisdetect({ STATE }){
+        return this._board().then((board =>{
+            if (STATE == 1 ){
+                board.ga_set_on();
+            } else {
+                board.ga_set_off();
+            }
+            
+        }))
+    }
+
+    getlrtilt(){
+        return this._getAccelData(LR_TILT).then(a=>{
+            a = this._clamp(a,-20,20);
+            
+            return (a>-5 && a<5) ? 0: a;
+        });
+    }
+
+    getfbtilt(){
+        return this._getAccelData(FB_TILT).then(a=>{
+            a = this._clamp(a,-20,20);
+            return (a>-5 && a<5) ? 0: a;
+        });
+    }
+
+    getxaxis(){
+        return this._getAccelData(X_A_AXIS).then((i)=>{
+            return this._clamp(i,-1,1);
+        })
+    }
+
+    getyaxis(){
+        return this._getAccelData(Y_A_AXIS).then((i)=>{
+            return this._clamp(i,-1,1);
+        })
+    }
+
+    getzaxis(){
+        return this._getAccelData(Z_A_AXIS).then((i)=>{
+            return this._clamp(i,-1,1);
+        })
+    }
+
+    _getAccelData(i){
+        return new Promise((resolve) => {
+            this._board().then((board) => {
+                board.on("POSITION",pos=>{
+                    resolve(pos[i]);
+                })
+            })
+        })
+    }
+
+    _clamp(val, min, max) {
+        return val > max ? max : val < min ? min : val;
     }
 
 }

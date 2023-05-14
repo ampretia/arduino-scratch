@@ -21,7 +21,7 @@ index ba18b91..e316f38 100644
 +        extensionId: 'arduinoScratch',
 +        iconURL: arduinoScratchIconURL,
 +        insetIconURL: arduinoScratchInsetIconURL,
-+        description: 'Connects to Arduino's running Firmata',
++        description: 'Connects to Arduinos running Firmata',
 +        featured: true,
 +        disabled: false
 +    },

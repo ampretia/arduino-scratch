@@ -15,14 +15,22 @@ setup:
 
     pushd scratch-vm
     npm install && npm ln
+    npx browserslist@latest --update-db
     popd
 
     pushd scratch-gui
     npm install && npm ln scratch-vm
+    npx browserslist@latest --update-db
     popd
 
 patch:
     #!/bin/bash
+    set -xeo pipefail
+    echo "Checking if Scratch source has already been customized"
+    if [ -e $CWDIR/patched ]; then
+        exit 1
+    fi
+
     cd $CWDIR/scratch-vm/src/extensions
     ln -s $CWDIR/{{EXTENSION_NAME}} {{EXTENSION_NAME}}
 
@@ -39,10 +47,14 @@ patch:
     git apply $CWDIR/patches/scratch-gui.patch
 
     echo "Copying in the Scratch extension files"
-    mkdir -p src/lib/libraries/extensions/{{EXTENSION_NAME}}
-    cd src/lib/libraries/extensions/{{EXTENSION_NAME}}
+    mkdir -p $CWDIR/scratch-gui/src/lib/libraries/extensions/{{EXTENSION_NAME}}
+    cd $CWDIR/scratch-gui/src/lib/libraries/extensions/{{EXTENSION_NAME}}
     ln -s $CWDIR/{{EXTENSION_NAME}}_background.png {{EXTENSION_NAME}}_background.png
     ln -s $CWDIR/{{EXTENSION_NAME}}_icon.png {{EXTENSION_NAME}}_icon.png
+
+    
+    echo "Marking the Scratch source as customized"
+    touch $CWDIR/patched
 
 build:
     #!/bin/bash
@@ -55,4 +67,4 @@ build:
 
 run:
     #!/bin/bash
-    python3 -m http.server -d $CWDIR/scratch-gui/build
+    npx http-server $CWDIR/scratch-gui/build
