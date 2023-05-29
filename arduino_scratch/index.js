@@ -45,6 +45,10 @@ const X_A_AXIS=3;
 const Y_A_AXIS=4;
 const Z_A_AXIS=5;
 
+
+const ANALOG_MAX=1000;
+const ANALOG_MIN=0;
+
 /** Map the string to the numeric number
  *  Firmata wants just the number
  */
@@ -100,6 +104,9 @@ class ArduinoScratch {
                 console.log(`_board: ${JSON.stringify(this.board.version)}`)
                 console.log(`_board: pin array ${JSON.stringify(this.board.pins)}`)
                 console.log(`_board: pwm pings ${JSON.stringify(this._getPWMPins())}`);
+
+                window.alert("Board is ready to go!")
+
                 this.boardReady = true;
                 resolve(this.board);
             }
@@ -465,7 +472,7 @@ class ArduinoScratch {
                 board.pinMode(mapPin(PIN), this.board.MODES.ANALOG);
 
                 board.analogRead(mapPin(PIN), (a) => {
-                    resolve(a);
+                    resolve(this._clamp(a,ANALOG_MIN,ANALOG_MAX));
                 })
             })
         })
@@ -474,7 +481,8 @@ class ArduinoScratch {
     pulse({ DIGITAL_PIN, PWM }) {
         return this._board().then((board) => {
             if (typeof PWM !== undefined) {
-                board.pwmWrite(mapPin(DIGITAL_PIN), PWM);
+                pwm = this._clamp(PWM,ANALOG_MIN,ANALOG_MAX);
+                board.pwmWrite(mapPin(DIGITAL_PIN), this._mapRange(pwm,ANALOG_MIN,ANALOG_MAX,0,255));
             }
 
         })
@@ -504,6 +512,7 @@ class ArduinoScratch {
 
     setledbarlevel({ BAR_LEVEL}){
         return this._board().then((board) => {
+            board.glb_setorientation(false);
             board.glb_setlevel(BAR_LEVEL);
           
         })      
@@ -566,6 +575,11 @@ class ArduinoScratch {
     _clamp(val, min, max) {
         return val > max ? max : val < min ? min : val;
     }
+
+    _mapRange(num, inMin, inMax, outMin, outMax) {
+        return  ((num - inMin) * (outMax - outMin)) / (inMax - inMin) + outMin;
+    }
+  
 
 }
 
